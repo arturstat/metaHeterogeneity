@@ -1,0 +1,88 @@
+"To demonstrate the independence of meta-analytic weights of their total as the number of trials
+goes to infinity"
+
+"This version permits calculation of standard errors by using repeated simulations
+and using the difference between them to calculate a variance"
+
+"Set parameter values."
+SCALAR [VALUE=30;IPRINT=EXTRA]nq;DECIMALS=0;EXTRA='number of outer simulations nq'
+SCALAR[VALUE=50;IPRINT=EXTRA]m;DECIMALS=0 ;EXTRA='number of inner simulations, m'
+SCALAR[VALUE=20;IPRINT=EXTRA]k;DECIMALS=0 ;EXTRA= 'maximum number of trials, k'
+SCALAR [VALUE=21]n; DECIMALS=0 "number of patients"
+
+
+"Declares various scalars and variates"
+
+SCALAR[IPRINT=EXTRA] DF ;DECIMALS=0;EXTRA='Degrees of freedom'
+CALCULATE DF=n-1
+POINTER[NVALUES=k]W1,Total,CW
+VARIATE[NVALUES=m] W1[],Total[]
+VARIATE[NVALUES=nq]CW[]
+SCALAR[IPRINT=EXTRA] n_Total;EXTRA='Total simulations'
+CALCULATE n_Total=nq*m
+
+"Print parameter settings"
+CAPTION 'Simulation to investigate correlation';STYLE=major
+CAPTION 'Parameter settings';STYLE=stress
+PRINT nq,m,k,DF
+
+"Begin simulation"
+
+FOR[INDEX=Q;NTIMES=nq]"Outer simulation loop"
+  PRINT 'Outer loop tracker', Q;DECIMALS=0
+  FOR[INDEX=H;NTIMES=k]"Number of trials in meta-analysis loop"
+     VARIATE[NVALUES=H]Weight
+     FOR[INDEX=I;NTIMES=m]"Inner simulation loop"
+       FOR[INDEX=J;NTIMES=H]"Trial loop"
+          GRANDOM[DISTRIBUTION=Normal;NVALUES=n]X "X hold individual values"
+          CALCULATE Weight$[J]=1/VAR(X) "Weight calculate as reciprocal of variance"
+       ENDFOR "End trial loop"
+      CALCULATE W1[H]$[I]=Weight$[1] "Arbitrarily choose weight from first trial"
+      CALCULATE Total[H]$[I]=SUM(Weight) "Sum of weights"
+    ENDFOR   "End inner simulation loop"
+  ENDFOR "End Number of trials in meta-analysis loop"
+  VARIATE[NVALUES=k] CorWeight,SE
+  FOR[INDEX=H;NTIMES=k] "Loop over number of trial in meta-analysis"
+     CALCULATE CW[H]$[Q]=CORRELATION(W1[H];Total[H]) "Correlation for each value of H, number of trials"
+  ENDFOR "End Number of trials in meta-analysis loop"
+ENDFOR "End outer simulation loop"
+  
+"Now average over outer simulation values and also calculate SE."  
+ FOR[NTIMES=k;INDEX=I]
+       CALCULATE CorWeight$[I]=mean(CW[I])
+       CALCULATE SE$[I]=SEMEAN(CW[I])
+ ENDFOR 
+
+"Calculate confidence limits"
+VARIATE[NVALUES=k] Rho_L,Rho_U
+CALCULATE Rho_L,Rho_U=CorWeight+SE*(-1.96,1.96)
+
+
+"Calculate theoretical values for correlation coefficient"
+VARIATE[VALUES=1...#k]Trials;DECIMALS=0
+VARIATE[NVALUES=k]Theory
+CALCULATE Theory=1/SQRT(Trials)
+PRINT Trials,CorWeight,SE,Rho_L,Rho_U
+
+
+"Create texts for labelling"
+TXCONSTRUCT[TEXT= SimLab]'Number of simulations = ',n_Total
+TXCONSTRUCT[TEXT= DFLab]'Degrees of freedom = ',DF
+
+
+"Graph results"
+FRAME [RESET=yes] WINDOW=1; XLOWER=0; XUPPER=0.75; YLOWER=0.25; YUPPER=1; XMLOWER=0.12;\
+ XMUPPER=0.05; YMLOWER=0.1; YMUPPER=0.07; BOX=include; TPOSITION=centre
+XAXIS [RESET=yes] WINDOW=1; TITLE='Number of Trials'; TPOSITION=middle; TDIRECTION=parallel;\
+ LPOSITION=outside; LDIRECTION=parallel; MPOSITION=outside; ARROWHEAD=omit; REVERSE=no;\
+ ACTION=display; TRANSFORM=identity;MARKS=!V(1,5,10,15,20)
+YAXIS [RESET=yes] WINDOW=1; TITLE='Correlation'; TPOSITION=middle; TDIRECTION=parallel;\
+ LPOSITION=outside; LDIRECTION=perpendicular; MPOSITION=outside; ARROWHEAD=omit; REVERSE=no;\
+ ACTION=display; TRANSFORM=identity
+PEN [RESET=yes] 1,2; SYMBOL=5,2; JOIN=ascending; METHOD=line; LINESTYLE=1; THICKNESS=1;\
+ CLINE='Black','Blue';CSYMBOL='Black','Blue';CFIlL='White','Blue'
+DGRAPH [WINDOW=1; KEYWINDOW=2;TITLE='Correlation of weight of a single trial with total weights'; \
+KEYDESCRIPTION='Correlation']Y=Theory,CorWeight; X=Trials;PEN=1,2;DESCRIPTION='Theoretical','Empirical';\
+YLOWER=Rho_L;YUPPER=Rho_U
+DTEXT TEXT=SimLab,DFLab;X=7,7;Y=0.85,0.75;PEN=1
+   
