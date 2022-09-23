@@ -1,7 +1,6 @@
 # Written by Artur Araujo
 
 # artur.stat@gmail.com
-# aamarinhodearaujo1@sheffield.ac.uk
 
 # October 2020
 
